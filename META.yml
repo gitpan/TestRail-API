@@ -23,7 +23,7 @@ no_index:
 provides:
   TestRail::API:
     file: lib/TestRail/API.pm
-    version: '0.007'
+    version: '0.008'
 requires:
   Carp: '0'
   Clone: '0'
@@ -33,7 +33,8 @@ requires:
   LWP::UserAgent: '0'
   Scalar::Util: '0'
   Try::Tiny: '0'
+  Types::Serialiser: '0'
   perl: '5.010'
 resources:
   repository: https://github.com/teodesian/TestRail-Perl.git
-version: '0.007'
+version: '0.008'
