@@ -48,14 +48,16 @@
          "requires" : {
             "Prompt::Timeout" : "0",
             "Scalar::Util" : "0",
-            "Test::More" : "0"
+            "Test::More" : "0",
+            "Test::Pod" : "0",
+            "Test::Pod::Coverage" : "0"
          }
       }
    },
    "provides" : {
       "TestRail::API" : {
          "file" : "lib/TestRail/API.pm",
-         "version" : "0.008"
+         "version" : "0.009"
       }
    },
    "release_status" : "stable",
@@ -66,5 +68,5 @@
          "web" : "https://github.com/teodesian/TestRail-Perl"
       }
    },
-   "version" : "0.008"
+   "version" : "0.009"
 }
