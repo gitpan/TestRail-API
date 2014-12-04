@@ -12,7 +12,7 @@
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
       "version" : "2"
    },
-   "name" : "TestRail::API",
+   "name" : "TestRail-API",
    "no_index" : {
       "directory" : [
          "t",
@@ -57,7 +57,7 @@
    "provides" : {
       "TestRail::API" : {
          "file" : "lib/TestRail/API.pm",
-         "version" : "0.009"
+         "version" : "0.010"
       }
    },
    "release_status" : "stable",
@@ -68,5 +68,5 @@
          "web" : "https://github.com/teodesian/TestRail-Perl"
       }
    },
-   "version" : "0.009"
+   "version" : "0.010"
 }

@@ -1,6 +1,6 @@
 package TestRail::API;
 {
-    $TestRail::API::VERSION = '0.009';
+    $TestRail::API::VERSION = '0.010';
 }
 
 =head1 NAME
@@ -21,6 +21,7 @@ It is by no means exhaustively implementing every TestRail API function.
 =cut
 
 
+use 5.010;
 use strict;
 use warnings;
 use Carp;
@@ -1451,11 +1452,19 @@ L<LWP::UserAgent>
 
 L<JSON::XS>
 
-http://docs.gurock.com/testrail-api2/start
+L<http://docs.gurock.com/testrail-api2/start>
+
+=head1 REPOSITORY
+
+L<https://github.com/teodesian/TestRail-Perl>
 
 =head1 AUTHOR
 
 George Baugh <teodesian@cpan.org>
+
+=head1 CONTRIBUTORS
+
+Neil Bowers <neil@bowers.com> - Fixed minor distribution issues for 0.010
 
 =head1 SPECIAL THANKS
 

@@ -17,7 +17,7 @@ license: artistic_2
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: '1.4'
-name: TestRail::API
+name: TestRail-API
 no_index:
   directory:
     - t
@@ -25,7 +25,7 @@ no_index:
 provides:
   TestRail::API:
     file: lib/TestRail/API.pm
-    version: '0.009'
+    version: '0.010'
 requires:
   Carp: '0'
   Clone: '0'
@@ -39,4 +39,4 @@ requires:
   perl: '5.010'
 resources:
   repository: https://github.com/teodesian/TestRail-Perl.git
-version: '0.009'
+version: '0.010'
