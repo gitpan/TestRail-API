@@ -1,29 +1,14 @@
+# ABSTRACT: Provides an interface to TestRail's REST api via HTTP
+# PODNAME: TestRail::API
+
 package TestRail::API;
-{
-    $TestRail::API::VERSION = '0.010';
-}
-
-=head1 NAME
-
-TestRail::API - Provides an interface to TestRail's REST api via HTTP
-
-=head1 SYNOPSIS
-
-    use TestRail::API;
-
-    my $tr = TestRail::API->new($username, $password, $host);
-
-=head1 DESCRIPTION
-
-C<TestRail::API> provides methods to access an existing TestRail account using API v2.  You can then do things like look up tests, set statuses and create runs from lists of cases.
-It is by no means exhaustively implementing every TestRail API function.
-
-=cut
-
+$TestRail::API::VERSION = '0.011';
 
 use 5.010;
+
 use strict;
 use warnings;
+
 use Carp;
 use Scalar::Util 'reftype';
 use Clone 'clone';
@@ -34,29 +19,6 @@ use HTTP::Request;
 use LWP::UserAgent;
 use Types::Serialiser; #Not necesarily shared by JSON::XS on all platforms
 
-=head1 CONSTRUCTOR
-
-=head2 B<new (api_url, user, password)>
-
-Creates new C<TestRail::API> object.
-
-=over 4
-
-=item STRING C<API URL> - base url for your TestRail api server.
-
-=item STRING C<USER> - Your testRail User.
-
-=item STRING C<PASSWORD> - Your TestRail password.
-
-=item BOOLEAN C<DEBUG> - Print the JSON responses from TL with your requests.
-
-=back
-
-Returns C<TestRail::API> object if login is successful.
-
-    my $tr = TestRail::API->new('http://tr.test/testrail', 'moo','M000000!');
-
-=cut
 
 sub new {
     my ($class,$apiurl,$user,$pass,$debug) = @_;
@@ -85,15 +47,6 @@ sub new {
     return $self;
 }
 
-=head1 GETTERS
-
-=head2 B<browser>
-=head2 B<apiurl>
-=head2 B<debug>
-
-Accessors for these parameters you pass into the constructor, in case you forget.
-
-=cut
 
 #EZ access of obj vars
 sub browser {$_[0]->{'browser'}}
@@ -145,14 +98,6 @@ sub _doRequest {
     }
 }
 
-=head1 USER METHODS
-
-=head2 B<getUsers ()>
-
-Get all the user definitions for the provided Test Rail install.
-Returns ARRAYREF of user definition HASHREFs.
-
-=cut
 
 sub getUsers {
     my $self = shift;
@@ -160,16 +105,6 @@ sub getUsers {
     return $self->{'user_cache'};
 }
 
-=head2 B<getUserByID(id)>
-=cut
-=head2 B<getUserByName(name)>
-=cut
-=head2 B<getUserByEmail(email)>
-
-Get user definition hash by ID, Name or Email.
-Returns user def HASHREF.
-
-=cut
 
 
 #I'm just using the cache for the following methods because it's more straightforward and faster past 1 call.
@@ -201,6 +136,551 @@ sub getUserByEmail {
     return 0;
 }
 
+
+sub createProject {
+    my ($self,$name,$desc,$announce) = @_;
+    $desc     //= 'res ipsa loquiter';
+    $announce //= 0;
+
+    my $input = {
+        name              => $name,
+        announcement      => $desc,
+        show_announcement => $announce ? Types::Serialiser::true : Types::Serialiser::false
+    };
+
+    my $result = $self->_doRequest('index.php?/api/v2/add_project','POST',$input);
+    return $result;
+
+}
+
+
+sub deleteProject {
+    my ($self,$proj) = @_;
+    my $result = $self->_doRequest('index.php?/api/v2/delete_project/'.$proj,'POST');
+    return $result;
+}
+
+
+sub getProjects {
+    my $self = shift;
+
+    my $result = $self->_doRequest('index.php?/api/v2/get_projects');
+
+    #Save state for future use, if needed
+    if (!scalar(@{$self->{'testtree'}})) {
+        $self->{'testtree'} = $result if $result;
+    }
+
+    if ($result) {
+        #Note that it's a project for future reference by recursive tree search
+        for my $pj (@{$result}) {
+            $pj->{'type'} = 'project';
+        }
+    }
+
+    return $result;
+}
+
+
+sub getProjectByName {
+    my ($self,$project) = @_;
+    confess "No project provided." unless $project;
+
+    #See if we already have the project list...
+    my $projects = $self->{'testtree'};
+    $projects = $self->getProjects() unless scalar(@$projects);
+
+    #Search project list for project
+    for my $candidate (@$projects) {
+        return $candidate if ($candidate->{'name'} eq $project);
+    }
+
+    return 0;
+}
+
+
+sub getProjectByID {
+    my ($self,$project) = @_;
+    confess "No project provided." unless $project;
+
+    #See if we already have the project list...
+    my $projects = $self->{'testtree'};
+    $projects = $self->getProjects() unless scalar(@$projects);
+
+    #Search project list for project
+    for my $candidate (@$projects) {
+        return $candidate if ($candidate->{'id'} eq $project);
+    }
+
+    return 0;
+}
+
+sub createTestSuite {
+    my ($self,$project_id,$name,$details) = @_;
+    $details ||= 'res ipsa loquiter';
+
+    my $input = {
+        name        => $name,
+        description => $details
+    };
+
+    my $result = $self->_doRequest('index.php?/api/v2/add_suite/'.$project_id,'POST',$input);
+    return $result;
+
+}
+
+
+sub deleteTestSuite {
+    my ($self,$suite_id) = @_;
+
+    my $result = $self->_doRequest('index.php?/api/v2/delete_suite/'.$suite_id,'POST');
+    return $result;
+
+}
+
+
+sub getTestSuites {
+    my ($self,$proj) = @_;
+    return $self->_doRequest('index.php?/api/v2/get_suites/'.$proj);
+}
+
+
+sub getTestSuiteByName {
+    my ($self,$project_id,$testsuite_name) = @_;
+
+    #TODO cache
+    my $suites = $self->getTestSuites($project_id);
+    return 0 if !$suites; #No suites for project, or no project
+
+    foreach my $suite (@$suites) {
+        return  $suite if $suite->{'name'} eq $testsuite_name;
+    }
+    return 0; #Couldn't find it
+}
+
+
+sub getTestSuiteByID {
+    my ($self,$testsuite_id) = @_;
+
+    my $result = $self->_doRequest('index.php?/api/v2/get_suite/'.$testsuite_id);
+    return $result;
+}
+
+
+sub createSection {
+    my ($self,$project_id,$suite_id,$name,$parent_id) = @_;
+
+    my $input = {
+        name     => $name,
+        suite_id => $suite_id
+    };
+    $input->{'parent_id'} = $parent_id if $parent_id;
+
+    my $result = $self->_doRequest('index.php?/api/v2/add_section/'.$project_id,'POST',$input);
+    return $result;
+
+}
+
+
+sub deleteSection {
+    my ($self,$section_id) = @_;
+
+    my $result = $self->_doRequest('index.php?/api/v2/delete_section/'.$section_id,'POST');
+    return $result;
+
+}
+
+
+sub getSections {
+    my ($self,$project_id,$suite_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_sections/$project_id&suite_id=$suite_id");
+}
+
+
+sub getSectionByID {
+    my ($self,$section_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_section/$section_id");
+}
+
+
+sub getSectionByName {
+    my ($self,$project_id,$suite_id,$section_name) = @_;
+    my $sections = $self->getSections($project_id,$suite_id);
+    foreach my $sec (@$sections) {
+        return $sec if $sec->{'name'} eq $section_name;
+    }
+    return 0;
+}
+
+
+sub getCaseTypes {
+    my $self = shift;
+    $self->{'type_cache'} = $self->_doRequest("index.php?/api/v2/get_case_types") if !$self->type_cache; #We can't change this with API, so assume it is static
+    return $self->{'type_cache'};
+}
+
+
+sub getCaseTypeByName {
+    #Useful for marking automated tests, etc
+    my ($self,$name) = @_;
+    my $types = $self->getCaseTypes();
+    foreach my $type (@$types) {
+        return $type if $type->{'name'} eq $name;
+    }
+    return 0;
+}
+
+
+sub createCase {
+    my ($self,$section_id,$title,$type_id,$opts,$extras) = @_;
+
+    my $stuff = {
+        title   => $title,
+        type_id => $type_id
+    };
+
+    #Handle sort of optional but baked in options
+    if (defined($extras) && reftype($extras) eq 'HASH') {
+        $stuff->{'priority_id'}  = $extras->{'priority_id'}       if defined($extras->{'priority_id'});
+        $stuff->{'estimate'}     = $extras->{'estimate'}          if defined($extras->{'estimate'});
+        $stuff->{'milestone_id'} = $extras->{'milestone_id'}      if defined($extras->{'milestone_id'});
+        $stuff->{'refs'}         = join(',',@{$extras->{'refs'}}) if defined($extras->{'refs'});
+    }
+
+    #Handle custom fields
+    if (defined($opts) && reftype($opts) eq 'HASH') {
+        foreach my $key (keys(%$opts)) {
+            $stuff->{"custom_$key"} = $opts->{$key};
+        }
+    }
+
+    my $result = $self->_doRequest("index.php?/api/v2/add_case/$section_id",'POST',$stuff);
+    return $result;
+}
+
+
+sub deleteCase {
+    my ($self,$case_id) = @_;
+    my $result = $self->_doRequest("index.php?/api/v2/delete_case/$case_id",'POST');
+    return $result;
+}
+
+
+sub getCases {
+    my ($self,$project_id,$suite_id,$section_id) = @_;
+    my $url = "index.php?/api/v2/get_cases/$project_id&suite_id=$suite_id";
+    $url .= "&section_id=$section_id" if $section_id;
+    return $self->_doRequest($url);
+}
+
+
+sub getCaseByName {
+    my ($self,$project_id,$suite_id,$section_id,$name) = @_;
+    my $cases = $self->getCases($project_id,$suite_id,$section_id);
+    foreach my $case (@$cases) {
+        return $case if $case->{'title'} eq $name;
+    }
+    return 0;
+}
+
+
+sub getCaseByID {
+    my ($self,$case_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_case/$case_id");
+}
+
+
+#If you pass an array of case ids, it implies include_all is false
+sub createRun {
+    my ($self,$project_id,$suite_id,$name,$desc,$milestone_id,$assignedto_id,$case_ids) = @_;
+
+    my $stuff = {
+        suite_id      => $suite_id,
+        name          => $name,
+        description   => $desc,
+        milestone_id  => $milestone_id,
+        assignedto_id => $assignedto_id,
+        include_all   => $case_ids ? Types::Serialiser::false : Types::Serialiser::true,
+        case_ids      => $case_ids
+    };
+
+    my $result = $self->_doRequest("index.php?/api/v2/add_run/$project_id",'POST',$stuff);
+    return $result;
+}
+
+
+sub deleteRun {
+    my ($self,$suite_id) = @_;
+    my $result = $self->_doRequest("index.php?/api/v2/delete_run/$suite_id",'POST');
+    return $result;
+}
+
+
+sub getRuns {
+    my ($self,$project_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_runs/$project_id");
+}
+
+
+
+sub getRunByName {
+    my ($self,$project_id,$name) = @_;
+    my $runs = $self->getRuns($project_id);
+    foreach my $run (@$runs) {
+        return $run if $run->{'name'} eq $name;
+    }
+    return 0;
+}
+
+
+sub getRunByID {
+    my ($self,$run_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_run/$run_id");
+}
+
+
+sub createPlan {
+    my ($self,$project_id,$name,$desc,$milestone_id,$entries) = @_;
+
+    my $stuff = {
+        name          => $name,
+        description   => $desc,
+        milestone_id  => $milestone_id,
+        entries       => $entries
+    };
+
+    my $result = $self->_doRequest("index.php?/api/v2/add_plan/$project_id",'POST',$stuff);
+    return $result;
+}
+
+
+sub deletePlan {
+    my ($self,$plan_id) = @_;
+    my $result = $self->_doRequest("index.php?/api/v2/delete_plan/$plan_id",'POST');
+    return $result;
+}
+
+
+sub getPlans {
+    my ($self,$project_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_plans/$project_id");
+}
+
+
+sub getPlanByName {
+    my ($self,$project_id,$name) = @_;
+    my $plans = $self->getPlans($project_id);
+    foreach my $plan (@$plans) {
+        return $plan if $plan->{'name'} eq $name;
+    }
+    return 0;
+}
+
+
+sub getPlanByID {
+    my ($self,$plan_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_plan/$plan_id");
+}
+
+
+sub createMilestone {
+    my ($self,$project_id,$name,$desc,$due_on) = @_;
+
+    my $stuff = {
+        name        => $name,
+        description => $desc,
+        due_on      => $due_on # unix timestamp
+    };
+
+    my $result = $self->_doRequest("index.php?/api/v2/add_milestone/$project_id",'POST',$stuff);
+    return $result;
+}
+
+
+sub deleteMilestone {
+    my ($self,$milestone_id) = @_;
+    my $result = $self->_doRequest("index.php?/api/v2/delete_milestone/$milestone_id",'POST');
+    return $result;
+}
+
+
+sub getMilestones {
+    my ($self,$project_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_milestones/$project_id");
+}
+
+
+sub getMilestoneByName {
+    my ($self,$project_id,$name) = @_;
+    my $milestones = $self->getMilestones($project_id);
+    foreach my $milestone (@$milestones) {
+        return $milestone if $milestone->{'name'} eq $name;
+    }
+    return 0;
+}
+
+
+sub getMilestoneByID {
+    my ($self,$milestone_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_milestone/$milestone_id");
+}
+
+
+sub getTests {
+    my ($self,$run_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_tests/$run_id");
+}
+
+
+sub getTestByName {
+    my ($self,$run_id,$name) = @_;
+    my $tests = $self->getTests($run_id);
+    foreach my $test (@$tests) {
+        return $test if $test->{'title'} eq $name;
+    }
+    return 0;
+}
+
+
+sub getTestByID {
+    my ($self,$test_id) = @_;
+    return $self->_doRequest("index.php?/api/v2/get_test/$test_id");
+}
+
+
+sub getTestResultFields {
+    my $self = shift;
+    return $self->_doRequest('index.php?/api/v2/get_result_fields');
+}
+
+
+sub getPossibleTestStatuses {
+    my $self = shift;
+    return $self->_doRequest('index.php?/api/v2/get_statuses');
+}
+
+
+sub createTestResults {
+    my ($self,$test_id,$status_id,$comment,$opts,$custom_fields) = @_;
+    my $stuff = {
+        status_id     => $status_id,
+        comment       => $comment
+    };
+
+    #Handle options
+    if (defined($opts) && reftype($opts) eq 'HASH') {
+        $stuff->{'version'}       = defined($opts->{'version'}) ? $opts->{'version'} : undef;
+        $stuff->{'elapsed'}       = defined($opts->{'elapsed'}) ? $opts->{'elapsed'} : undef;
+        $stuff->{'defects'}       = defined($opts->{'defects'}) ? join(',',@{$opts->{'defects'}}) : undef;
+        $stuff->{'assignedto_id'} = defined($opts->{'assignedto_id'}) ? $opts->{'assignedto_id'} : undef;
+    }
+
+    #Handle custom fields
+    if (defined($custom_fields) && reftype($custom_fields) eq 'HASH') {
+        foreach my $field (keys(%$custom_fields)) {
+            $stuff->{"custom_$field"} = $custom_fields->{$field};
+        }
+    }
+
+    return $self->_doRequest("index.php?/api/v2/add_result/$test_id",'POST',$stuff);
+}
+
+
+sub getTestResults {
+    my ($self,$test_id,$limit) = @_;
+    my $url = "index.php?/api/v2/get_results/$test_id";
+    $url .= "&limit=$limit" if defined($limit);
+    return $self->_doRequest($url);
+}
+
+
+#Convenience method for building stepResults
+sub buildStepResults {
+    my ($content,$expected,$actual,$status_id) = @_;
+    return {
+        content   => $content,
+        expected  => $expected,
+        actual    => $actual,
+        status_id => $status_id
+    };
+}
+
+1;
+
+__END__
+
+=pod
+
+=encoding UTF-8
+
+=head1 NAME
+
+TestRail::API - Provides an interface to TestRail's REST api via HTTP
+
+=head1 VERSION
+
+version 0.011
+
+=head1 SYNOPSIS
+
+    use TestRail::API;
+
+    my ($username,$password,$host) = ('foo','bar','testlink.baz.foo');
+    my $tr = TestRail::API->new($username, $password, $host);
+
+=head1 DESCRIPTION
+
+C<TestRail::API> provides methods to access an existing TestRail account using API v2.  You can then do things like look up tests, set statuses and create runs from lists of cases.
+It is by no means exhaustively implementing every TestRail API function.
+
+=head1 CONSTRUCTOR
+
+=head2 B<new (api_url, user, password)>
+
+Creates new C<TestRail::API> object.
+
+=over 4
+
+=item STRING C<API URL> - base url for your TestRail api server.
+
+=item STRING C<USER> - Your TestRail User.
+
+=item STRING C<PASSWORD> - Your TestRail password.
+
+=item BOOLEAN C<DEBUG> - Print the JSON responses from TL with your requests.
+
+=back
+
+Returns C<TestRail::API> object if login is successful.
+
+    my $tr = TestRail::API->new('http://tr.test/testrail', 'moo','M000000!');
+
+=head1 GETTERS
+
+=head2 B<browser>
+
+=head2 B<apiurl>
+
+=head2 B<debug>
+
+Accessors for these parameters you pass into the constructor, in case you forget.
+
+=head1 USER METHODS
+
+=head2 B<getUsers ()>
+
+Get all the user definitions for the provided Test Rail install.
+Returns ARRAYREF of user definition HASHREFs.
+
+=head2 B<getUserByID(id)>
+
+=head2 B<getUserByName(name)>
+
+=head2 B<getUserByEmail(email)>
+
+Get user definition hash by ID, Name or Email.
+Returns user def HASHREF.
+
 =head1 PROJECT METHODS
 
 =head2 B<createProject (name, [description,send_announcement])>
@@ -223,24 +703,6 @@ Returns project definition HASHREF on success, false otherwise.
 
     $tl->createProject('Widgetronic 4000', 'Tests for the whiz-bang new product', true);
 
-=cut
-
-sub createProject {
-    my ($self,$name,$desc,$announce) = @_;
-    $desc     //= 'res ipsa loquiter';
-    $announce //= 0;
-
-    my $input = {
-        name              => $name,
-        announcement      => $desc,
-        show_announcement => $announce ? Types::Serialiser::true : Types::Serialiser::false
-    };
-
-    my $result = $self->_doRequest('index.php?/api/v2/add_project','POST',$input);
-    return $result;
-
-}
-
 =head2 B<deleteProject (id)>
 
 Deletes specified project by ID.
@@ -256,14 +718,6 @@ Returns BOOLEAN.
 
     $success = $tl->deleteProject(1);
 
-=cut
-
-sub deleteProject {
-    my ($self,$proj) = @_;
-    my $result = $self->_doRequest('index.php?/api/v2/delete_project/'.$proj,'POST');
-    return $result;
-}
-
 =head2 B<getProjects ()>
 
 Get all available projects
@@ -271,28 +725,6 @@ Get all available projects
 Returns array of project definition HASHREFs, false otherwise.
 
     $projects = $tl->getProjects;
-
-=cut
-
-sub getProjects {
-    my $self = shift;
-
-    my $result = $self->_doRequest('index.php?/api/v2/get_projects');
-
-    #Save state for future use, if needed
-    if (!scalar(@{$self->{'testtree'}})) {
-        $self->{'testtree'} = $result if $result;
-    }
-
-    if ($result) {
-        #Note that it's a project for future reference by recursive tree search
-        for my $pj (@{$result}) {
-            $pj->{'type'} = 'project';
-        }
-    }
-
-    return $result;
-}
 
 =head2 B<getProjectByName ($project)>
 
@@ -308,24 +740,6 @@ Returns desired project def HASHREF, false otherwise.
 
     $projects = $tl->getProjectByName('FunProject');
 
-=cut
-
-sub getProjectByName {
-    my ($self,$project) = @_;
-    confess "No project provided." unless $project;
-
-    #See if we already have the project list...
-    my $projects = $self->{'testtree'};
-    $projects = $self->getProjects() unless scalar(@$projects);
-
-    #Search project list for project
-    for my $candidate (@$projects) {
-        return $candidate if ($candidate->{'name'} eq $project);
-    }
-
-    return 0;
-}
-
 =head2 B<getProjectByID ($project)>
 
 Gets some project definition hash by it's ID
@@ -340,23 +754,6 @@ Returns desired project def HASHREF, false otherwise.
 
     $projects = $tl->getProjectByID(222);
 
-=cut
-
-sub getProjectByID {
-    my ($self,$project) = @_;
-    confess "No project provided." unless $project;
-
-    #See if we already have the project list...
-    my $projects = $self->{'testtree'};
-    $projects = $self->getProjects() unless scalar(@$projects);
-
-    #Search project list for project
-    for my $candidate (@$projects) {
-        return $candidate if ($candidate->{'id'} eq $project);
-    }
-
-    return 0;
-}
 =head1 TESTSUITE METHODS
 
 =head2 B<createTestSuite (project_id, name, [description])>
@@ -377,22 +774,6 @@ Returns TS definition HASHREF on success, false otherwise.
 
     $tl->createTestSuite(1, 'broken tests', 'Tests that should be reviewed');
 
-=cut
-
-sub createTestSuite {
-    my ($self,$project_id,$name,$details) = @_;
-    $details ||= 'res ipsa loquiter';
-
-    my $input = {
-        name        => $name,
-        description => $details
-    };
-
-    my $result = $self->_doRequest('index.php?/api/v2/add_suite/'.$project_id,'POST',$input);
-    return $result;
-
-}
-
 =head2 B<deleteTestSuite (suite_id)>
 
 Deletes specified testsuite.
@@ -407,16 +788,6 @@ Returns BOOLEAN.
 
     $tl->deleteTestSuite(1);
 
-=cut
-
-sub deleteTestSuite {
-    my ($self,$suite_id) = @_;
-
-    my $result = $self->_doRequest('index.php?/api/v2/delete_suite/'.$suite_id,'POST');
-    return $result;
-
-}
-
 =head2 B<getTestSuites (project_id)>
 
 Gets the testsuites for a project
@@ -430,13 +801,6 @@ Gets the testsuites for a project
 Returns ARRAYREF of testsuite definition HASHREFs, 0 on error.
 
     $suites = $tl->getTestSuites(123);
-
-=cut
-
-sub getTestSuites {
-    my ($self,$proj) = @_;
-    return $self->_doRequest('index.php?/api/v2/get_suites/'.$proj);
-}
 
 =head2 B<getTestSuiteByName (project_id,testsuite_name)>
 
@@ -454,43 +818,19 @@ Returns desired testsuite definition HASHREF, false otherwise.
 
     $suites = $tl->getTestSuitesByName(321, 'hugSuite');
 
-=cut
-
-sub getTestSuiteByName {
-    my ($self,$project_id,$testsuite_name) = @_;
-
-    #TODO cache
-    my $suites = $self->getTestSuites($project_id);
-    return 0 if !$suites; #No suites for project, or no project
-
-    foreach my $suite (@$suites) {
-        return  $suite if $suite->{'name'} eq $testsuite_name;
-    }
-    return 0; #Couldn't find it
-}
-
 =head2 B<getTestSuiteByID (testsuite_id)>
 
 Gets the testsuite with the given ID.
 
 =over 4
 
-=item STRING C<TESTSUITE_ID> - Testsuite ID.
+=item STRING C<TESTSUITE_ID> - TestSuite ID.
 
 =back
 
 Returns desired testsuite definition HASHREF, false otherwise.
 
     $tests = $tl->getTestSuiteByID(123);
-
-=cut
-
-sub getTestSuiteByID {
-    my ($self,$testsuite_id) = @_;
-
-    my $result = $self->_doRequest('index.php?/api/v2/get_suite/'.$testsuite_id);
-    return $result;
-}
 
 =head1 SECTION METHODS
 
@@ -502,7 +842,7 @@ Creates a section.
 
 =item INTEGER C<PROJECT ID> - Parent Project ID.
 
-=item INTEGER C<SUITE ID> - Parent Testsuite ID.
+=item INTEGER C<SUITE ID> - Parent TestSuite ID.
 
 =item STRING C<NAME> - desired section name.
 
@@ -513,22 +853,6 @@ Creates a section.
 Returns new section definition HASHREF, false otherwise.
 
     $section = $tr->createSection(1,1,'nugs',1);
-
-=cut
-
-sub createSection {
-    my ($self,$project_id,$suite_id,$name,$parent_id) = @_;
-
-    my $input = {
-        name     => $name,
-        suite_id => $suite_id
-    };
-    $input->{'parent_id'} = $parent_id if $parent_id;
-
-    my $result = $self->_doRequest('index.php?/api/v2/add_section/'.$project_id,'POST',$input);
-    return $result;
-
-}
 
 =head2 B<deleteSection (section_id)>
 
@@ -543,16 +867,6 @@ Deletes specified section.
 Returns BOOLEAN.
 
     $tr->deleteSection(1);
-
-=cut
-
-sub deleteSection {
-    my ($self,$section_id) = @_;
-
-    my $result = $self->_doRequest('index.php?/api/v2/delete_section/'.$section_id,'POST');
-    return $result;
-
-}
 
 =head2 B<getSections (project_id,suite_id)>
 
@@ -570,13 +884,6 @@ Returns ARRAYREF of section definition HASHREFs.
 
     $tr->getSections(1,2);
 
-=cut
-
-sub getSections {
-    my ($self,$project_id,$suite_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_sections/$project_id&suite_id=$suite_id");
-}
-
 =head2 B<getSectionByID (section_id)>
 
 Gets desired section.
@@ -592,13 +899,6 @@ Gets desired section.
 Returns section definition HASHREF.
 
     $tr->getSectionByID(344);
-
-=cut
-
-sub getSectionByID {
-    my ($self,$section_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_section/$section_id");
-}
 
 =head2 B<getSectionByName (project_id,suite_id,name)>
 
@@ -618,17 +918,6 @@ Returns section definition HASHREF.
 
     $tr->getSectionByName(1,2,'nugs');
 
-=cut
-
-sub getSectionByName {
-    my ($self,$project_id,$suite_id,$section_name) = @_;
-    my $sections = $self->getSections($project_id,$suite_id);
-    foreach my $sec (@$sections) {
-        return $sec if $sec->{'name'} eq $section_name;
-    }
-    return 0;
-}
-
 =head1 CASE METHODS
 
 =head2 B<getCaseTypes ()>
@@ -638,14 +927,6 @@ Gets possible case types.
 Returns ARRAYREF of case type definition HASHREFs.
 
     $tr->getCaseTypes();
-
-=cut
-
-sub getCaseTypes {
-    my $self = shift;
-    $self->{'type_cache'} = $self->_doRequest("index.php?/api/v2/get_case_types") if !$self->type_cache; #We can't change this with API, so assume it is static
-    return $self->{'type_cache'};
-}
 
 =head2 B<getCaseTypeByName (name)>
 
@@ -660,18 +941,6 @@ Gets case type by name.
 Returns case type definition HASHREF.
 
     $tr->getCaseTypeByName();
-
-=cut
-
-sub getCaseTypeByName {
-    #Useful for marking automated tests, etc
-    my ($self,$name) = @_;
-    my $types = $self->getCaseTypes();
-    foreach my $type (@$types) {
-        return $type if $type->{'name'} eq $name;
-    }
-    return 0;
-}
 
 =head2 B<createCase(section_id,title,type_id,options,extra_options)>
 
@@ -708,35 +977,6 @@ Returns new case definition HASHREF, false otherwise.
 
     $case = $tr->createCase(1,'Do some stuff',3,$custom_opts,$other_opts);
 
-=cut
-
-sub createCase {
-    my ($self,$section_id,$title,$type_id,$opts,$extras) = @_;
-
-    my $stuff = {
-        title   => $title,
-        type_id => $type_id
-    };
-
-    #Handle sort of optional but baked in options
-    if (defined($extras) && reftype($extras) eq 'HASH') {
-        $stuff->{'priority_id'}  = $extras->{'priority_id'}       if defined($extras->{'priority_id'});
-        $stuff->{'estimate'}     = $extras->{'estimate'}          if defined($extras->{'estimate'});
-        $stuff->{'milestone_id'} = $extras->{'milestone_id'}      if defined($extras->{'milestone_id'});
-        $stuff->{'refs'}         = join(',',@{$extras->{'refs'}}) if defined($extras->{'refs'});
-    }
-
-    #Handle custom fields
-    if (defined($opts) && reftype($opts) eq 'HASH') {
-        foreach my $key (keys(%$opts)) {
-            $stuff->{"custom_$key"} = $opts->{$key};
-        }
-    }
-
-    my $result = $self->_doRequest("index.php?/api/v2/add_case/$section_id",'POST',$stuff);
-    return $result;
-}
-
 =head2 B<deleteCase (case_id)>
 
 Deletes specified section.
@@ -750,14 +990,6 @@ Deletes specified section.
 Returns BOOLEAN.
 
     $tr->deleteCase(1324);
-
-=cut
-
-sub deleteCase {
-    my ($self,$case_id) = @_;
-    my $result = $self->_doRequest("index.php?/api/v2/delete_case/$case_id",'POST');
-    return $result;
-}
 
 =head2 B<getCases (project_id,suite_id,section_id)>
 
@@ -776,15 +1008,6 @@ Gets cases for provided section.
 Returns ARRAYREF of test case definition HASHREFs.
 
     $tr->getCases(1,2,3);
-
-=cut
-
-sub getCases {
-    my ($self,$project_id,$suite_id,$section_id) = @_;
-    my $url = "index.php?/api/v2/get_cases/$project_id&suite_id=$suite_id";
-    $url .= "&section_id=$section_id" if $section_id;
-    return $self->_doRequest($url);
-}
 
 =head2 B<getCaseByName (project_id,suite_id,section_id,name)>
 
@@ -806,17 +1029,6 @@ Returns test case definition HASHREF.
 
     $tr->getCaseByName(1,2,3,'nugs');
 
-=cut
-
-sub getCaseByName {
-    my ($self,$project_id,$suite_id,$section_id,$name) = @_;
-    my $cases = $self->getCases($project_id,$suite_id,$section_id);
-    foreach my $case (@$cases) {
-        return $case if $case->{'title'} eq $name;
-    }
-    return 0;
-}
-
 =head2 B<getCaseByID (case_id)>
 
 Gets case by ID.
@@ -830,13 +1042,6 @@ Gets case by ID.
 Returns test case definition HASHREF.
 
     $tr->getCaseByID(1345);
-
-=cut
-
-sub getCaseByID {
-    my ($self,$case_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_case/$case_id");
-}
 
 =head1 RUN METHODS
 
@@ -866,26 +1071,6 @@ Returns run definition HASHREF.
 
     $tr->createRun(1,1345,'RUN AWAY','SO FAR AWAY',22,3,[3,4,5,6]);
 
-=cut
-
-#If you pass an array of case ids, it implies include_all is false
-sub createRun {
-    my ($self,$project_id,$suite_id,$name,$desc,$milestone_id,$assignedto_id,$case_ids) = @_;
-
-    my $stuff = {
-        suite_id      => $suite_id,
-        name          => $name,
-        description   => $desc,
-        milestone_id  => $milestone_id,
-        assignedto_id => $assignedto_id,
-        include_all   => $case_ids ? Types::Serialiser::false : Types::Serialiser::true,
-        case_ids      => $case_ids
-    };
-
-    my $result = $self->_doRequest("index.php?/api/v2/add_run/$project_id",'POST',$stuff);
-    return $result;
-}
-
 =head2 B<deleteRun (run_id)>
 
 Deletes specified run.
@@ -900,14 +1085,6 @@ Returns BOOLEAN.
 
     $tr->deleteRun(1324);
 
-=cut
-
-sub deleteRun {
-    my ($self,$suite_id) = @_;
-    my $result = $self->_doRequest("index.php?/api/v2/delete_run/$suite_id",'POST');
-    return $result;
-}
-
 =head2 B<getRuns (project_id)>
 
 Get all runs for specified project.
@@ -921,14 +1098,6 @@ Get all runs for specified project.
 Returns ARRAYREF of run definition HASHREFs.
 
     $allRuns = $tr->getRuns(6969);
-
-=cut
-
-sub getRuns {
-    my ($self,$project_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_runs/$project_id");
-}
-
 
 =head2 B<getRunByName (project_id,name)>
 
@@ -946,17 +1115,6 @@ Returns run definition HASHREF.
 
     $tr->getRunByName(1,'gravy');
 
-=cut
-
-sub getRunByName {
-    my ($self,$project_id,$name) = @_;
-    my $runs = $self->getRuns($project_id);
-    foreach my $run (@$runs) {
-        return $run if $run->{'name'} eq $name;
-    }
-    return 0;
-}
-
 =head2 B<getRunByID (run_id)>
 
 Gets run by ID.
@@ -970,13 +1128,6 @@ Gets run by ID.
 Returns run definition HASHREF.
 
     $tr->getRunByID(7779311);
-
-=cut
-
-sub getRunByID {
-    my ($self,$run_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_run/$run_id");
-}
 
 =head1 PLAN METHODS
 
@@ -994,7 +1145,7 @@ Create a run.
 
 =item INTEGER C<MILESTONE_ID> (optional) - ID of milestone
 
-=item ARRAYREF C<ENTRIES> (optional) - New Runs to initially populate the plan with -- See TestLink API documentation for more advanced inputs here.
+=item ARRAYREF C<ENTRIES> (optional) - New Runs to initially populate the plan with -- See TestRail API documentation for more advanced inputs here.
 
 =back
 
@@ -1007,22 +1158,6 @@ Returns test plan definition HASHREF, or false on failure.
     }
 
     $tr->createPlan(1,'Gosplan','Robo-Signed Soviet 5-year plan',22,$entries);
-
-=cut
-
-sub createPlan {
-    my ($self,$project_id,$name,$desc,$milestone_id,$entries) = @_;
-
-    my $stuff = {
-        name          => $name,
-        description   => $desc,
-        milestone_id  => $milestone_id,
-        entries       => $entries
-    };
-
-    my $result = $self->_doRequest("index.php?/api/v2/add_plan/$project_id",'POST',$stuff);
-    return $result;
-}
 
 =head2 B<deletePlan (plan_id)>
 
@@ -1038,14 +1173,6 @@ Returns BOOLEAN.
 
     $tr->deletePlan(8675309);
 
-=cut
-
-sub deletePlan {
-    my ($self,$plan_id) = @_;
-    my $result = $self->_doRequest("index.php?/api/v2/delete_plan/$plan_id",'POST');
-    return $result;
-}
-
 =head2 B<getPlans (project_id)>
 
 Deletes specified plan.
@@ -1059,13 +1186,6 @@ Deletes specified plan.
 Returns ARRAYREF of plan definition HASHREFs.
 
     $tr->getPlans(8);
-
-=cut
-
-sub getPlans {
-    my ($self,$project_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_plans/$project_id");
-}
 
 =head2 B<getPlanByName (project_id,name)>
 
@@ -1083,17 +1203,6 @@ Returns plan definition HASHREF.
 
     $tr->getPlanByName(8,'GosPlan');
 
-=cut
-
-sub getPlanByName {
-    my ($self,$project_id,$name) = @_;
-    my $plans = $self->getPlans($project_id);
-    foreach my $plan (@$plans) {
-        return $plan if $plan->{'name'} eq $name;
-    }
-    return 0;
-}
-
 =head2 B<getPlanByID (plan_id)>
 
 Gets specified plan by ID.
@@ -1107,13 +1216,6 @@ Gets specified plan by ID.
 Returns plan definition HASHREF.
 
     $tr->getPlanByID(2);
-
-=cut
-
-sub getPlanByID {
-    my ($self,$plan_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_plan/$plan_id");
-}
 
 =head1 MILESTONE METHODS
 
@@ -1137,21 +1239,6 @@ Returns milestone definition HASHREF, or false on failure.
 
     $tr->createMilestone(1,'Patriotic victory of world perlism','Accomplish by Robo-Signed Soviet 5-year plan',time()+157788000);
 
-=cut
-
-sub createMilestone {
-    my ($self,$project_id,$name,$desc,$due_on) = @_;
-
-    my $stuff = {
-        name        => $name,
-        description => $desc,
-        due_on      => $due_on # unix timestamp
-    };
-
-    my $result = $self->_doRequest("index.php?/api/v2/add_milestone/$project_id",'POST',$stuff);
-    return $result;
-}
-
 =head2 B<deleteMilestone (milestone_id)>
 
 Deletes specified milestone.
@@ -1166,14 +1253,6 @@ Returns BOOLEAN.
 
     $tr->deleteMilestone(86);
 
-=cut
-
-sub deleteMilestone {
-    my ($self,$milestone_id) = @_;
-    my $result = $self->_doRequest("index.php?/api/v2/delete_milestone/$milestone_id",'POST');
-    return $result;
-}
-
 =head2 B<getMilestones (project_id)>
 
 Get milestones for some project.
@@ -1187,13 +1266,6 @@ Get milestones for some project.
 Returns ARRAYREF of milestone definition HASHREFs.
 
     $tr->getMilestones(8);
-
-=cut
-
-sub getMilestones {
-    my ($self,$project_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_milestones/$project_id");
-}
 
 =head2 B<getMilestoneByName (project_id,name)>
 
@@ -1211,17 +1283,6 @@ Returns milestone definition HASHREF.
 
     $tr->getMilestoneByName(8,'whee');
 
-=cut
-
-sub getMilestoneByName {
-    my ($self,$project_id,$name) = @_;
-    my $milestones = $self->getMilestones($project_id);
-    foreach my $milestone (@$milestones) {
-        return $milestone if $milestone->{'name'} eq $name;
-    }
-    return 0;
-}
-
 =head2 B<getMilestoneByID (plan_id)>
 
 Gets specified milestone by ID.
@@ -1232,16 +1293,9 @@ Gets specified milestone by ID.
 
 =back
 
-Returns milestione definition HASHREF.
+Returns milestone definition HASHREF.
 
     $tr->getMilestoneByID(2);
-
-=cut
-
-sub getMilestoneByID {
-    my ($self,$milestone_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_milestone/$milestone_id");
-}
 
 =head1 TEST METHODS
 
@@ -1259,13 +1313,6 @@ Returns ARRAYREF of test definition HASHREFs.
 
     $tr->getTests(8);
 
-=cut
-
-sub getTests {
-    my ($self,$run_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_tests/$run_id");
-}
-
 =head2 B<getTestByName (run_id,name)>
 
 Gets specified test by name.
@@ -1282,17 +1329,6 @@ Returns test definition HASHREF.
 
     $tr->getTestByName(36,'wheeTest');
 
-=cut
-
-sub getTestByName {
-    my ($self,$run_id,$name) = @_;
-    my $tests = $self->getTests($run_id);
-    foreach my $test (@$tests) {
-        return $test if $test->{'title'} eq $name;
-    }
-    return 0;
-}
-
 =head2 B<getTestByID (test_id)>
 
 Gets specified test by ID.
@@ -1307,38 +1343,17 @@ Returns test definition HASHREF.
 
     $tr->getTestByID(222222);
 
-=cut
-
-sub getTestByID {
-    my ($self,$test_id) = @_;
-    return $self->_doRequest("index.php?/api/v2/get_test/$test_id");
-}
-
 =head2 B<getTestResultFields()>
 
 Gets custom fields that can be set for tests.
 
 Returns ARRAYREF of result definition HASHREFs.
 
-=cut
-
-sub getTestResultFields {
-    my $self = shift;
-    return $self->_doRequest('index.php?/api/v2/get_result_fields');
-}
-
 =head2 B<getPossibleTestStatuses()>
 
 Gets all possible statuses a test can be set to.
 
 Returns ARRAYREF of status definition HASHREFs.
-
-=cut
-
-sub getPossibleTestStatuses {
-    my $self = shift;
-    return $self->_doRequest('index.php?/api/v2/get_statuses');
-}
 
 =head2 B<createTestResults(test_id,status_id,comment,options,custom_options)>
 
@@ -1371,33 +1386,6 @@ Returns result definition HASHREF.
 
     $res = $tr->createTestResults(1,2,'Test failed because it was all like WAAAAAAA when I poked it',$options,$custom_options);
 
-=cut
-
-sub createTestResults {
-    my ($self,$test_id,$status_id,$comment,$opts,$custom_fields) = @_;
-    my $stuff = {
-        status_id     => $status_id,
-        comment       => $comment
-    };
-
-    #Handle options
-    if (defined($opts) && reftype($opts) eq 'HASH') {
-        $stuff->{'version'}       = defined($opts->{'version'}) ? $opts->{'version'} : undef;
-        $stuff->{'elapsed'}       = defined($opts->{'elapsed'}) ? $opts->{'elapsed'} : undef;
-        $stuff->{'defects'}       = defined($opts->{'defects'}) ? join(',',@{$opts->{'defects'}}) : undef;
-        $stuff->{'assignedto_id'} = defined($opts->{'assignedto_id'}) ? $opts->{'assignedto_id'} : undef;
-    }
-
-    #Handle custom fields
-    if (defined($custom_fields) && reftype($custom_fields) eq 'HASH') {
-        foreach my $field (keys(%$custom_fields)) {
-            $stuff->{"custom_$field"} = $custom_fields->{$field};
-        }
-    }
-
-    return $self->_doRequest("index.php?/api/v2/add_result/$test_id",'POST',$stuff);
-}
-
 =head2 B<getTestResults(test_id,limit)>
 
 Get the recorded results for desired test, limiting output to 'limit' entries.
@@ -1412,35 +1400,9 @@ Get the recorded results for desired test, limiting output to 'limit' entries.
 
 Returns ARRAYREF of result definition HASHREFs.
 
-=cut
-
-sub getTestResults {
-    my ($self,$test_id,$limit) = @_;
-    my $url = "index.php?/api/v2/get_results/$test_id";
-    $url .= "&limit=$limit" if defined($limit);
-    return $self->_doRequest($url);
-}
-
 =head2 B<buildStepResults(content,expected,actual,status_id)>
 
 Convenience method to build the stepResult hashes seen in the custom options for getTestResults.
-
-=cut
-
-#Convenience method for building stepResults
-sub buildStepResults {
-    my ($content,$expected,$actual,$status_id) = @_;
-    return {
-        content   => $content,
-        expected  => $expected,
-        actual    => $actual,
-        status_id => $status_id
-    };
-}
-
-1;
-
-__END__
 
 =head1 SEE ALSO
 
@@ -1454,24 +1416,30 @@ L<JSON::XS>
 
 L<http://docs.gurock.com/testrail-api2/start>
 
-=head1 REPOSITORY
-
-L<https://github.com/teodesian/TestRail-Perl>
-
-=head1 AUTHOR
-
-George Baugh <teodesian@cpan.org>
-
-=head1 CONTRIBUTORS
-
-Neil Bowers <neil@bowers.com> - Fixed minor distribution issues for 0.010
-
 =head1 SPECIAL THANKS
 
 Thanks to cPanel Inc, for graciously funding the creation of this module.
+
+=head1 AUTHOR
+
+George S. Baugh <teodesian@cpan.org>
+
+=head1 CONTRIBUTOR
+
+=for stopwords Neil Bowers
+
+Neil Bowers <neil@bowers.com>
+
+=head1 SOURCE
+
+The development version is on github at L<http://github.com/teodesian/TestRail-Perl>
+and may be cloned from L<git://github.com/teodesian/TestRail-Perl.git>
 
 =head1 COPYRIGHT AND LICENSE
 
 This software is copyright (c) 2014 by George S. Baugh.
 
-This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+=cut

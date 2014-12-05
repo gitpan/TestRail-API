@@ -1,0 +1,50 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.73.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 fe18d6feebd310b6b5bc290ac7bb3c916f1e0431 Changes
+SHA1 8b015a9f87d55343414c169b045e226e4cc30d65 LICENSE
+SHA1 a6bd68df209c27707a334b7596250795cbaabf2f MANIFEST
+SHA1 173920bd442cec09c843cc976472726b5fab69ed META.yml
+SHA1 aec21d020fa94d249261de227e6bd5614c91de3c Makefile.PL
+SHA1 4e51f517d57b687d5256f7677f6bc78fa0a32ee8 README
+SHA1 aad4e123fd0e7dc81f86561b0182aef4d88285e9 lib/TestRail/API.pm
+SHA1 718030102bd2b4621c44849e780b9a343e6cde8d t/00-compile.t
+SHA1 a10aa03096d4a35898ce0e42f7a9058435136599 t/TestRail-API.t
+SHA1 00a59482fa74fd536a1a3ea919bbe46b0ff91ae1 t/author-eol.t
+SHA1 43b7a3c52f1f47fea55510d9b57649718f52ddc6 t/author-no-tabs.t
+SHA1 dbce48c922a21d02f6b80c27b18a179e8bcc264a t/author-pod-spell.t
+SHA1 c019f763f1afade90b7f6f24628af4d8fde358fa t/release-cpan-changes.t
+SHA1 a8a3b6c291113fff0f1765ef584a08bc4498bdc0 t/release-kwalitee.t
+SHA1 54ed25287b7e1c9ff328eaf126d438438c8a1d48 t/release-minimum-version.t
+SHA1 54b7f39e355424cbc367105b84ff02a6cb29d93b t/release-mojibake.t
+SHA1 5cf386f49901e8ccaad5ab271036754d67114081 t/release-pod-coverage.t
+SHA1 4f2933df3566db6f337817aa885889deb213960b t/release-pod-linkcheck.t
+SHA1 dc3eefcab3399f9a70861c332bb4a81ddcbb45e4 t/release-pod-syntax.t
+SHA1 bf4fdda27bd4e8ec177c38cca43083317494cba8 t/release-portability.t
+SHA1 44aad671b03350a7f2d915c721dab2f1c2e068f5 t/release-synopsis.t
+SHA1 af34d5f9f8bd79b21b6c01c69e0afdd81f25c16b t/release-test-version.t
+SHA1 17514255b5ff5f46ac8ce9e9e3c887c9a205c8ba t/release-unused-vars.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJUgUe6AAoJEFuXw5BFhGAyQooIAI27UjKbPoEnL4UcArauU3LQ
+IXZ+cGll46e1gwQU/w2TCXqYp+m9gNMomMysKKv8OvUqa2WaqIeijUmZfaFUo43S
+QsvKa4lhYHtRkDqiyeMI9viOnFXlhZA/k908LCroI55k1f1OPJpwGYhVEYvWZDlA
+8bl+9ZhLxvRHNePnBjz6dCYe+0iMpUhG/FjU1E6Q7WDu/96mDCpctpXf5M5vKd+b
+3xamZfRgMAtn4psNi0dhylwWndmvjHqx0iUKUrMz3u2QE/SqMZyT0qxoGt8V9F7G
+QjAWsXYTllVI1ES3cllmWBjNqKAqmyB4p05W7AhzrjZdO+GUBLYEpDTqQCbiFFA=
+=SgUD
+-----END PGP SIGNATURE-----
