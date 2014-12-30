@@ -14,37 +14,50 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 fe18d6feebd310b6b5bc290ac7bb3c916f1e0431 Changes
+SHA1 21fdbdfa0b5f957cd3e4056b87732a1fc3feb4b3 .travis.yml
+SHA1 c9084e989e7865d12e0204991e1e8210e598b7f0 Changes
 SHA1 8b015a9f87d55343414c169b045e226e4cc30d65 LICENSE
-SHA1 a6bd68df209c27707a334b7596250795cbaabf2f MANIFEST
-SHA1 173920bd442cec09c843cc976472726b5fab69ed META.yml
-SHA1 aec21d020fa94d249261de227e6bd5614c91de3c Makefile.PL
-SHA1 4e51f517d57b687d5256f7677f6bc78fa0a32ee8 README
-SHA1 aad4e123fd0e7dc81f86561b0182aef4d88285e9 lib/TestRail/API.pm
-SHA1 718030102bd2b4621c44849e780b9a343e6cde8d t/00-compile.t
-SHA1 a10aa03096d4a35898ce0e42f7a9058435136599 t/TestRail-API.t
-SHA1 00a59482fa74fd536a1a3ea919bbe46b0ff91ae1 t/author-eol.t
-SHA1 43b7a3c52f1f47fea55510d9b57649718f52ddc6 t/author-no-tabs.t
-SHA1 dbce48c922a21d02f6b80c27b18a179e8bcc264a t/author-pod-spell.t
-SHA1 c019f763f1afade90b7f6f24628af4d8fde358fa t/release-cpan-changes.t
-SHA1 a8a3b6c291113fff0f1765ef584a08bc4498bdc0 t/release-kwalitee.t
-SHA1 54ed25287b7e1c9ff328eaf126d438438c8a1d48 t/release-minimum-version.t
-SHA1 54b7f39e355424cbc367105b84ff02a6cb29d93b t/release-mojibake.t
-SHA1 5cf386f49901e8ccaad5ab271036754d67114081 t/release-pod-coverage.t
-SHA1 4f2933df3566db6f337817aa885889deb213960b t/release-pod-linkcheck.t
-SHA1 dc3eefcab3399f9a70861c332bb4a81ddcbb45e4 t/release-pod-syntax.t
-SHA1 bf4fdda27bd4e8ec177c38cca43083317494cba8 t/release-portability.t
-SHA1 44aad671b03350a7f2d915c721dab2f1c2e068f5 t/release-synopsis.t
-SHA1 af34d5f9f8bd79b21b6c01c69e0afdd81f25c16b t/release-test-version.t
-SHA1 17514255b5ff5f46ac8ce9e9e3c887c9a205c8ba t/release-unused-vars.t
+SHA1 15666e5d51ff4e267c8339b439ee8b40b5e2e564 MANIFEST
+SHA1 8bf8ea89a16f4bbe01b7cd6a36d4561b4e5b9f07 META.yml
+SHA1 5440044fd44a46e54b3a2432adcec4588797aa74 Makefile.PL
+SHA1 01fdda5f69398f9ad546b41fc5b79d727bfe40c0 README
+SHA1 342e539785fe10fc5f4bf0984b27700621081c46 bin/testrail-report
+SHA1 00022bd643d07a95504c890fc18f073a7a013a28 lib/App/Prove/Plugin/TestRail.pm
+SHA1 097c92de839a3cfddc6865a11fcd181b717b09f9 lib/Test/LWP/UserAgent/TestRailMock.pm
+SHA1 fc54adf491caafa02946334e3f0e115c90602bcf lib/Test/Rail/Harness.pm
+SHA1 0740b09fd4635d9980de56bb8b4d27bb9ce2025f lib/Test/Rail/Parser.pm
+SHA1 c80eb057dfa56930ebdbc8afcae1858cf2431ddd lib/TestRail/API.pm
+SHA1 8f3d29d1290a73ede841239d1cd6f5c542633a7e perlcriticrc
+SHA1 7bbd2bf8327e1bf10e456a5f0908533d4da4775b t/00-compile.t
+SHA1 addedaa710fa4409676e88db51b8faf49e8b35c1 t/Test-Rail-Parser.t
+SHA1 c86a4da629190785b529fcedcd070c6f5f11b26f t/TestRail-API.t
+SHA1 773fa4659cd99388250e28bbf3d1341b009772ba t/arg_types.t
+SHA1 bdb6119936461398d34dc34a6ed6253c79d0a126 t/author-classSafety.t
+SHA1 0423a3633b9ebbe19d84bc37a852c46f51fb8172 t/author-critic.t
+SHA1 a56f314011fd798215665fd1467db52a1e0bea19 t/author-eol.t
+SHA1 2486925b36ddb0fef5a7dcf407bf765d09ed8968 t/author-no-tabs.t
+SHA1 be941bf2eb4f8add8de40065c066e1c1555cd194 t/author-pod-spell.t
+SHA1 896a7587282c1214b5142391910ed3a02d5d7b86 t/fake.test
+SHA1 d9a92df04c7bc3d71015f398703fdfb473cd0f14 t/faker.test
+SHA1 1bf69b71b924777ef46b198af9435e8381149fc7 t/release-cpan-changes.t
+SHA1 f280e70fba8b661a28039c067a0344af8f63f90c t/release-kwalitee.t
+SHA1 978fcdcd038d17814e4a2429f19795a77894f1a1 t/release-minimum-version.t
+SHA1 c3f2346ec2f84878d354db3a42891cf2ac930bba t/release-mojibake.t
+SHA1 ca37d7b91c2299a98877a6f36d3fab51e8dd906f t/release-pod-coverage.t
+SHA1 c3bec8aa8475c5ec46a0bad17a20d44d4ea1b1b8 t/release-pod-linkcheck.t
+SHA1 e7fc4d8f3f29ee522cb53914648393524fc7a6d4 t/release-pod-syntax.t
+SHA1 2004bfb0410282d648b206e2765c616185cd94df t/release-synopsis.t
+SHA1 28fecfbabc119a8249d68f19721fa15347603748 t/release-test-version.t
+SHA1 c25eff8a9460ca35a1aefb6f8506261f549b0b18 t/release-unused-vars.t
+SHA1 447121bbfe8576d6027d5e9463ec16191cab285b t/server_dead.t
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Version: GnuPG v1.4.14 (GNU/Linux)
 
-iQEcBAEBAgAGBQJUgUe6AAoJEFuXw5BFhGAyQooIAI27UjKbPoEnL4UcArauU3LQ
-IXZ+cGll46e1gwQU/w2TCXqYp+m9gNMomMysKKv8OvUqa2WaqIeijUmZfaFUo43S
-QsvKa4lhYHtRkDqiyeMI9viOnFXlhZA/k908LCroI55k1f1OPJpwGYhVEYvWZDlA
-8bl+9ZhLxvRHNePnBjz6dCYe+0iMpUhG/FjU1E6Q7WDu/96mDCpctpXf5M5vKd+b
-3xamZfRgMAtn4psNi0dhylwWndmvjHqx0iUKUrMz3u2QE/SqMZyT0qxoGt8V9F7G
-QjAWsXYTllVI1ES3cllmWBjNqKAqmyB4p05W7AhzrjZdO+GUBLYEpDTqQCbiFFA=
-=SgUD
+iQEcBAEBAgAGBQJUox4dAAoJEFuXw5BFhGAyz+kH/3+mlizzbvFGW68F6ZzQzdH2
+0uhKyIY9BgIbyxDYIXlgZ7GW7eQTohwI0XrY5yTlvpZuhZgFwuPCaQZv6+x42wA/
+qOEpZ/BZishglrxAcXmHnkX2o/OMJ/RksdieFlQuIhUJz+DrrZ08L8BVNgq8ZIbY
+B53c0Jc8Z/9cYQt6Memnzwa2H2IgHJq5jDTPEKoYRC5+rv+N86uB5GOboN7gdrhi
+Wnd8RpcAlv2vs1YOBhMiHeF7fUydoNXX+GMxwzIc/H+Jcx9TrD5DMEyCLtHD390y
+ULLDxel7/c8+nS70eTcLzaOlddANkbR8i/r5WIFvI5BVQLZXXMVoMVsAn9bIvTY=
+=lsDy
 -----END PGP SIGNATURE-----

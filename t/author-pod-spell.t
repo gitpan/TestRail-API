@@ -1,9 +1,10 @@
 
 BEGIN {
-  unless ($ENV{AUTHOR_TESTING}) {
-    require Test::More;
-    Test::More::plan(skip_all => 'these tests are for testing by the author');
-  }
+    unless ( $ENV{AUTHOR_TESTING} ) {
+        require Test::More;
+        Test::More::plan(
+            skip_all => 'these tests are for testing by the author' );
+    }
 }
 
 use strict;
@@ -14,9 +15,8 @@ use Test::More;
 use Test::Spelling 0.12;
 use Pod::Wordlist;
 
-
 add_stopwords(<DATA>);
-all_pod_files_spelling_ok( qw( bin lib  ) );
+all_pod_files_spelling_ok(qw( bin lib  ));
 __DATA__
 GETTERS
 TESTSUITE
@@ -28,6 +28,7 @@ createPlan
 createProject
 createRun
 createTestSuite
+createTestResults
 deleteCase
 deleteMilestone
 deletePlan
@@ -69,6 +70,13 @@ api
 ipsa
 loquiter
 testsuite
+testrail
+EOFCallback
+commentCallback
+testCallback
+unknownCallback
+buildStepResults
+testrailrc
 George
 Baugh
 teodesian
@@ -76,5 +84,15 @@ Neil
 Bowers
 neil
 lib
+Test
+LWP
+UserAgent
+TestRailMock
+Rail
+Harness
+App
+Prove
+Plugin
 TestRail
+Parser
 API
